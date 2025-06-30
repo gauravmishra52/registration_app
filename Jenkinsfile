@@ -12,7 +12,6 @@ pipeline {
         DOCKER_USER = "gaurav5213"
         IMAGE_NAME = "${DOCKER_USER}/${APP_NAME}"
         IMAGE_TAG = "${RELEASE}-${BUILD_NUMBER}"
-        JENKINS_API_TOKEN = credentials("JENKINS_API_TOKEN")
     }
 
     stages {
@@ -76,32 +75,34 @@ pipeline {
 
         stage("Trivy Scan") {
             steps {
-                script {
-                    sh "docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${IMAGE_NAME}:latest --no-progress --scanners vuln --exit-code 0 --severity HIGH,CRITICAL --format table"
-                }
+                sh '''
+                    docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+                    aquasec/trivy image ${IMAGE_NAME}:latest \
+                    --no-progress --scanners vuln --exit-code 0 \
+                    --severity HIGH,CRITICAL --format table
+                '''
             }
         }
 
         stage("Cleanup Artifacts") {
             steps {
-                script {
-                    sh '''
-                        docker rmi $IMAGE_NAME:$BUILD_NUMBER || true
-                        docker rmi $IMAGE_NAME:latest || true
-                    '''
-                }
+                sh '''
+                    docker rmi ${IMAGE_NAME}:${IMAGE_TAG} || true
+                    docker rmi ${IMAGE_NAME}:latest || true
+                '''
             }
         }
 
         stage("Trigger CD Pipeline") {
             steps {
-                script {
-                    sh """
-                        curl -v -k --user clouduser:${JENKINS_API_TOKEN} \\
-                        -X POST -H 'cache-control: no-cache' -H 'content-type: application/x-www-form-urlencoded' \\
-                        --data 'IMAGE_TAG=${IMAGE_TAG}' \\
-                        'http://ec2-13-232-128-192.ap-south-1.compute.amazonaws.com:8080/job/gitops-register-app-cd/buildWithParameters?token=gitops-token'
-                    """
+                withCredentials([string(credentialsId: 'JENKINS_API_TOKEN', variable: 'CD_TOKEN')]) {
+                    sh '''
+                        curl -v -k --user clouduser:$CD_TOKEN -X POST \
+                        -H "cache-control: no-cache" \
+                        -H "content-type: application/x-www-form-urlencoded" \
+                        --data "IMAGE_TAG=${IMAGE_TAG}" \
+                        http://34.240.240.74:8080/job/gitops-register-app-cd/buildWithParameters?token=gitops-token
+                    '''
                 }
             }
         }
@@ -111,15 +112,16 @@ pipeline {
         failure {
             emailext(
                 body: '''${SCRIPT, template="groovy-html.template"}''',
-                subject: "${env.JOB_NAME} - Build # ${env.BUILD_NUMBER} - Failed",
+                subject: "${env.JOB_NAME} - Build #${env.BUILD_NUMBER} - ❌ Failed",
                 mimeType: 'text/html',
                 to: "amank844932@gmail.com"
             )
         }
+
         success {
             emailext(
                 body: '''${SCRIPT, template="groovy-html.template"}''',
-                subject: "${env.JOB_NAME} - Build # ${env.BUILD_NUMBER} - Successful",
+                subject: "${env.JOB_NAME} - Build #${env.BUILD_NUMBER} - ✅ Successful",
                 mimeType: 'text/html',
                 to: "amank844932@gmail.com"
             )
