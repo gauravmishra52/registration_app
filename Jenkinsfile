@@ -15,7 +15,6 @@ pipeline {
     }
 
     stages {
-
         stage("Cleanup Workspace") {
             steps {
                 cleanWs()
@@ -93,28 +92,31 @@ pipeline {
                 '''
             }
         }
-    stage("Trigger CD Pipeline") {
-    steps {
-        withCredentials([usernamePassword(credentialsId: 'jenkins-api-token', usernameVariable: 'CD_USER', passwordVariable: 'CD_TOKEN')]) {
-            sh '''
-                echo "🚀 Triggering CD Pipeline..."
-                RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -k --user $CD_USER:$CD_TOKEN -X POST \
-                    -H "cache-control: no-cache" \
-                    -H "content-type: application/x-www-form-urlencoded" \
-                    --data "IMAGE_TAG=${IMAGE_TAG}" \
-                    http://34.240.240.74:8080/job/gitops-register-app-cd/buildWithParameters?token=gitops-token)
 
-                echo "HTTP response: $RESPONSE"
-                if [ "$RESPONSE" -ne 201 ] && [ "$RESPONSE" -ne 200 ]; then
-                    echo "❌ CD trigger failed!"
-                    exit 1
-                fi
-                echo "✅ CD Pipeline triggered successfully."
-            '''
+        stage("Trigger CD Pipeline") {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'jenkins-api-token', usernameVariable: 'CD_USER', passwordVariable: 'CD_TOKEN')]) {
+                    sh '''
+                        echo "🚀 Triggering CD Pipeline..."
+                        RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -k --user $CD_USER:$CD_TOKEN -X POST \
+                            -H "cache-control: no-cache" \
+                            -H "content-type: application/x-www-form-urlencoded" \
+                            --data "IMAGE_TAG=${IMAGE_TAG}" \
+                            http://34.240.240.74:8080/job/gitops-register-app-cd/buildWithParameters?token=gitops-token)
+
+                        echo "HTTP response: $RESPONSE"
+                        if [ "$RESPONSE" -ne 201 ] && [ "$RESPONSE" -ne 200 ]; then
+                            echo "❌ CD trigger failed!"
+                            exit 1
+                        fi
+                        echo "✅ CD Pipeline triggered successfully."
+                    '''
+                }
+            }
         }
-    }
-}
- post {
+    }  // ✅ closes the stages block
+
+    post {
         failure {
             emailext(
                 body: '''${SCRIPT, template="groovy-html.template"}''',
