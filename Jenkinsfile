@@ -92,7 +92,8 @@ pipeline {
                 '''
             }
         }
-            stage("Trigger CD Pipeline") {
+
+        stage("Trigger CD Pipeline") {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'jenkins-api-token', usernameVariable: 'CD_USER', passwordVariable: 'CD_TOKEN')]) {
                     sh '''
@@ -105,8 +106,7 @@ pipeline {
                 }
             }
         }
-    }  
-}
+    }
 
     post {
         failure {
