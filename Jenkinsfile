@@ -15,6 +15,7 @@ pipeline {
     }
 
     stages {
+
         stage("Cleanup Workspace") {
             steps {
                 cleanWs()
@@ -95,9 +96,9 @@ pipeline {
 
         stage("Trigger CD Pipeline") {
             steps {
-                withCredentials([string(credentialsId: 'JENKINS_API_TOKEN', variable: 'CD_TOKEN')]) {
+                withCredentials([usernamePassword(credentialsId: 'jenkins-api-token', usernameVariable: 'CD_USER', passwordVariable: 'CD_TOKEN')]) {
                     sh '''
-                        curl -v -k --user admin:$CD_TOKEN -X POST \
+                        curl -v -k --user $CD_USER:$CD_TOKEN -X POST \
                         -H "cache-control: no-cache" \
                         -H "content-type: application/x-www-form-urlencoded" \
                         --data "IMAGE_TAG=${IMAGE_TAG}" \
