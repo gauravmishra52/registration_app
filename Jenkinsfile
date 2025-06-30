@@ -97,11 +97,16 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'jenkins-api-token', usernameVariable: 'CD_USER', passwordVariable: 'CD_TOKEN')]) {
                     sh '''
+                        # Get Jenkins Crumb
+                        CRUMB=$(curl -k -s --user $CD_USER:$CD_TOKEN "http://34.240.240.74:8080/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,\":\",//crumb)")
+
+                        # Trigger CD Pipeline with Crumb header
                         curl -v -k --user $CD_USER:$CD_TOKEN -X POST \
-                        -H "cache-control: no-cache" \
-                        -H "content-type: application/x-www-form-urlencoded" \
-                        --data "IMAGE_TAG=${IMAGE_TAG}" \
-                        http://34.240.240.74:8080/job/gitops-register-app-cd/buildWithParameters?token=gitops-token
+                          -H "$CRUMB" \
+                          -H "cache-control: no-cache" \
+                          -H "content-type: application/x-www-form-urlencoded" \
+                          --data "IMAGE_TAG=${IMAGE_TAG}" \
+                          "http://34.240.240.74:8080/job/gitops-register-app-cd/buildWithParameters?token=gitops-token"
                     '''
                 }
             }
